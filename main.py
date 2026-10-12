@@ -314,7 +314,8 @@ async def require_auth(request: Request):
 # ── Startup & Shutdown ────────────────────────────────────────────────────────
 async def _xray_watch_loop():
     """Reload Xray after a panel CRUD operation without blocking HTTP requests."""
-    previous = None
+    async with LINKS_LOCK:
+        previous = json.dumps(LINKS, sort_keys=True, separators=(",", ":"))
     while True:
         try:
             async with LINKS_LOCK:
@@ -323,6 +324,10 @@ async def _xray_watch_loop():
             if snapshot != previous:
                 await xray_manager.reload(links)
                 previous = snapshot
+            elif xray_manager.enabled and not xray_manager.status()["running"]:
+                # Recover from an unexpected Xray exit even when no CRUD event
+                # occurred after the crash.
+                await xray_manager.start(links)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -1777,26 +1782,47 @@ async def dashboard(request: Request):
 # ── WebSocket & XHTTP Route Mounting ──────────────────────────────────────────
 # Import the relay lazily so importing relay_vless or xhttp_siz10 directly does
 # not create a partially-initialized ``main``/``relay_vless`` circular import.
-async def websocket_tunnel_entry(ws, uuid: str):
+async def xray_eligible(uuid: str) -> bool:
+    """Only bypass the Python relay when no panel-side traffic policy is needed."""
+    async with LINKS_LOCK:
+        link = LINKS.get(uuid)
+        if not is_link_allowed(link):
+            return False
+        return not any(int(link.get(key, 0) or 0) > 0 for key in ("limit_bytes", "ip_limit", "speed_limit_bytes"))
+
+
+async def websocket_tunnel_entry(ws: WebSocket, uuid: str):
     # Prefer the real Xray Core when it is healthy; retain the existing relay as
     # a safe compatibility fallback for local development or unsupported builds.
-    if xray_manager.status()["running"]:
+    if xray_manager.status()["running"] and await xray_eligible(uuid):
         try:
-            await xray_manager.bridge(ws, "vless-ws")
+            await ws.accept()
+            await xray_manager.bridge(ws, "vless-ws", accept_socket=False)
             return
         except Exception as e:
             logger.warning("Xray VLESS bridge failed for %s: %s", uuid, e)
+            try:
+                await ws.close(code=1011, reason="Xray bridge unavailable")
+            except Exception:
+                pass
+            return
     from relay_vless import websocket_tunnel
     return await websocket_tunnel(ws, uuid)
 
 
-async def trojan_tunnel_entry(ws, uuid: str):
-    if xray_manager.status()["running"]:
+async def trojan_tunnel_entry(ws: WebSocket, uuid: str):
+    if xray_manager.status()["running"] and await xray_eligible(uuid):
         try:
-            await xray_manager.bridge(ws, "trojan-ws")
+            await ws.accept()
+            await xray_manager.bridge(ws, "trojan-ws", accept_socket=False)
             return
         except Exception as e:
             logger.warning("Xray Trojan bridge failed for %s: %s", uuid, e)
+            try:
+                await ws.close(code=1011, reason="Xray bridge unavailable")
+            except Exception:
+                pass
+            return
     from relay_vless import websocket_tunnel
     return await websocket_tunnel(ws, uuid)
 

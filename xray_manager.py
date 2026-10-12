@@ -9,8 +9,8 @@ import asyncio
 import json
 import logging
 import os
-import signal
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,13 +34,26 @@ class XrayManager:
         self._lock = asyncio.Lock()
 
     @staticmethod
+    def _expired(link: dict[str, Any]) -> bool:
+        value = link.get("expires_at")
+        if not value:
+            return False
+        try:
+            parsed = datetime.fromisoformat(str(value))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return datetime.now(timezone.utc) > parsed.astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
     def _client(link: dict[str, Any], uid: str) -> dict[str, Any]:
         return {"id": uid, "email": str(link.get("label") or uid)[:64]}
 
     def build_config(self, links: dict[str, dict[str, Any]]) -> dict[str, Any]:
         vless, trojan = [], []
         for uid, link in links.items():
-            if not link.get("active", True) or link.get("expired", False):
+            if not link.get("active", True) or link.get("expired", False) or self._expired(link):
                 continue
             protocol = link.get("protocol", "vless-ws")
             if protocol == "trojan-ws":
@@ -123,9 +136,16 @@ class XrayManager:
         async with self._lock:
             await self.write_config(links)
             if self.process and self.process.returncode is None:
-                self.process.send_signal(signal.SIGHUP)
-                self.last_reload = time.time()
-                return
+                # Do not rely on SIGHUP: Xray builds differ in their reload
+                # behavior. A controlled restart guarantees the new user list
+                # is loaded and avoids silently killing the inbound process.
+                self.process.terminate()
+                try:
+                    await asyncio.wait_for(self.process.wait(), timeout=8)
+                except asyncio.TimeoutError:
+                    self.process.kill()
+                    await self.process.wait()
+                self.process = None
         await self.start(links)
 
     async def stop(self) -> None:
@@ -143,10 +163,15 @@ class XrayManager:
         running = bool(self.process and self.process.returncode is None)
         return {"enabled": self.enabled, "running": running, "binary": str(self.binary), "config_path": str(self.config_path), "vless_port": self.vless_port, "trojan_port": self.trojan_port, "uptime_seconds": int(time.time() - self.started_at) if running and self.started_at else 0, "last_reload": self.last_reload, "last_error": self.last_error}
 
-    async def bridge(self, client_ws: Any, protocol: str) -> None:
-        """Bridge an accepted FastAPI WebSocket to the loopback Xray inbound."""
+    async def bridge(self, client_ws: Any, protocol: str, *, accept_socket: bool = True) -> None:
+        """Bridge a FastAPI WebSocket to the loopback Xray inbound."""
         if not (self.process and self.process.returncode is None):
             raise RuntimeError("Xray Core is not running")
+        # Starlette requires the public socket to be accepted before receive().
+        # Without this handshake, clients report a failed connection/ping even
+        # though the Xray process itself is healthy.
+        if accept_socket:
+            await client_ws.accept()
         port = self.trojan_port if protocol == "trojan-ws" else self.vless_port
         async with websockets.connect(f"ws://127.0.0.1:{port}/{'trojan' if protocol == 'trojan-ws' else 'ws'}", max_size=None, ping_interval=20) as upstream:
             async def client_to_xray():

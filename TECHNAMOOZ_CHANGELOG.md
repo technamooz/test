@@ -19,3 +19,7 @@
 - endpointهای احراز‌شدهٔ `/api/xray/status` و `/api/xray/reload`.
 - تست واقعی binary Xray و اعتبارسنجی config موفق شد.
 - تست process start/stop و تست واحد تولید کانفیگ اضافه شد.
+
+## Deep audit and ping fix — 2026-10-12
+
+در تست end-to-end واقعی مشخص شد که routeهای WebSocket wrapper بدون type annotation صحیح FastAPI ممکن است با 403 رد شوند. annotation صحیح `WebSocket` اضافه شد و مسیر VLESS از کلاینت Xray تا اینترنت با موفقیت تست شد. همچنین reload مبتنی بر SIGHUP حذف و با restart کنترل‌شده جایگزین شد؛ watcher دیگر بلافاصله بعد از startup هسته را reload نمی‌کند و در صورت crash آن را recover می‌کند. credentialهای hardcode شده از login و settings frontend حذف شدند. کانفیگ‌های منقضی از inbound Xray حذف می‌شوند و کانفیگ‌هایی که quota، IP limit یا speed limit دارند از bridge مستقیم Xray عبور نمی‌کنند و به relay policy-aware قبلی سپرده می‌شوند.

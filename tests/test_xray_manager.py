@@ -32,6 +32,17 @@ class XrayManagerTests(unittest.TestCase):
             self.assertIn("inbounds", loaded)
             self.assertEqual(manager.config_path.stat().st_mode & 0o777, 0o600)
 
+    def test_expired_link_is_not_added_to_inbound(self):
+        manager = XrayManager()
+        config = manager.build_config({
+            "44444444-4444-4444-4444-444444444444": {
+                "active": True,
+                "protocol": "vless-ws",
+                "expires_at": "2020-01-01T00:00:00+00:00",
+            }
+        })
+        self.assertEqual(config["inbounds"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

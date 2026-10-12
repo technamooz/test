@@ -461,15 +461,14 @@ LOGIN_HTML = r"""<!DOCTYPE html>
       </div>
 
       <div class="hint-box">
-        <span class="hint-title" id="i18n-hint">Initial Defaults:</span>
-        <span class="hint-creds" onclick="fillDefaults()" title="Click to fill">Amirparsa / Technamooz</span>
+        <span class="hint-title" id="i18n-hint">Credentials are configured by the administrator.</span>
       </div>
 
       <form id="login-form">
         <div class="field-group">
           <label class="field-label" id="i18n-user-label">Username</label>
           <div class="input-wrapper">
-            <input type="text" id="username" value="Amirparsa" required autocomplete="username" autofocus>
+            <input type="text" id="username" required autocomplete="username" autofocus>
             <i class="ti ti-user input-icon"></i>
           </div>
         </div>
@@ -477,7 +476,7 @@ LOGIN_HTML = r"""<!DOCTYPE html>
         <div class="field-group">
           <label class="field-label" id="i18n-pass-label">Password</label>
           <div class="input-wrapper">
-            <input type="password" id="password" value="Technamooz" required autocomplete="current-password">
+            <input type="password" id="password" required autocomplete="current-password">
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility()">
               <i class="ti ti-eye" id="pw-eye-icon"></i>
             </button>
@@ -593,11 +592,6 @@ LOGIN_HTML = r"""<!DOCTYPE html>
         pwInput.type = 'password';
         icon.className = 'ti ti-eye';
       }
-    }
-
-    function fillDefaults() {
-      document.getElementById('username').value = 'Amirparsa';
-      document.getElementById('password').value = 'Technamooz';
     }
 
     async function refreshCaptcha() {
@@ -2704,7 +2698,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
       <div style="font-size:16px;font-weight:700;color:var(--t1);"><i class="ti ti-lock-cog"></i> <span data-i18n="changeCredentials">تغییر مشخصات ورود مدیر</span></div>
       <button onclick="document.getElementById('cred-modal').style.display='none'" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer;"><i class="ti ti-x"></i></button>
     </div>
-    <div class="f-group mb12"><label class="f-label" data-i18n="newUsername">نام کاربری جدید</label><input class="f-input" id="cred-username" value="Amirparsa"></div>
+    <div class="f-group mb12"><label class="f-label" data-i18n="newUsername">نام کاربری جدید</label><input class="f-input" id="cred-username"></div>
     <div class="f-group mb12"><label class="f-label" data-i18n="currentPassword">رمز عبور فعلی</label><input class="f-input" type="password" id="cred-current" placeholder="رمز فعلی"></div>
     <div class="f-group mb16"><label class="f-label" data-i18n="newPassword">رمز عبور جدید</label><input class="f-input" type="password" id="cred-new" placeholder="حداقل ۶ کاراکتر"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -3197,4 +3191,3 @@ async function init(){{
 init();
 </script>
 </body></html>"""
-
