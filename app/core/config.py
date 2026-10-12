@@ -5,7 +5,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "Technamooz Control Plane")
-    version: str = os.getenv("APP_VERSION", "2.0.0")
+    version: str = os.getenv("APP_VERSION", "2.1.0-premium")
     host: str = os.getenv("RAILWAY_PUBLIC_DOMAIN", "localhost")
     port: int = int(os.getenv("PORT", "8000"))
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data" if os.getenv("RAILWAY_ENVIRONMENT") else "./data"))

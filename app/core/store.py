@@ -35,7 +35,28 @@ class StateStore:
         async with self.lock: return json.loads(json.dumps(self.state))
     async def create_link(self, payload: dict):
         uid = secrets.token_hex(16)
-        self.state["links"][uid] = {"id": uid, "label": payload.get("label", "New node"), "protocol": payload.get("protocol", "vless-ws"), "host": payload.get("host", settings.host), "port": int(payload.get("port", 443)), "active": True, "used_bytes": 0, "limit_bytes": int(payload.get("limit_bytes", 0))}
-        await self.save(); return self.state["links"][uid]
+        async with self.lock:
+            self.state["links"][uid] = {"id": uid, "label": payload.get("label", "New node"), "protocol": payload.get("protocol", "vless-ws"), "host": payload.get("host", settings.host), "port": int(payload.get("port", 443)), "active": True, "used_bytes": 0, "limit_bytes": int(payload.get("limit_bytes", 0))}
+            result = dict(self.state["links"][uid])
+        await self.save()
+        return result
+
+    async def update_link(self, link_id: str, changes: dict):
+        async with self.lock:
+            link = self.state["links"].get(link_id)
+            if link is None:
+                return None
+            link.update({key: value for key, value in changes.items() if value is not None})
+            result = dict(link)
+        await self.save()
+        return result
+
+    async def delete_link(self, link_id: str) -> bool:
+        async with self.lock:
+            if link_id not in self.state["links"]:
+                return False
+            del self.state["links"][link_id]
+        await self.save()
+        return True
 
 store = StateStore()
