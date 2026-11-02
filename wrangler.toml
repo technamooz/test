@@ -6,4 +6,4 @@ compatibility_date = "2023-10-30"
 [[d1_databases]]
 binding = "IOT_DB"
 database_name = "iot_db"
-database_id = ""
+database_id = "3678c0e9-6a7a-470e-bb12-0cf89b654733"
